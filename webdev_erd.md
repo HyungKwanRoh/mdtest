@@ -66,7 +66,7 @@ erDiagram
 
 ## 3. 물리 모델 (ERD)
 
-논리 모델을 실제 DB(Oracle 기준)에 구현하기 위한 물리 모델이다. 테이블은 `TB_` 접두어를 사용하고, boolean 컬럼은 `CHAR(1)` (`Y`/`N`) 타입으로, 감사(Audit)를 위한 등록/수정 정보 컬럼을 추가로 둔다.
+논리 모델을 실제 DB(MariaDB 기준)에 구현하기 위한 물리 모델이다. 테이블은 `TB_` 접두어를 사용하고, `ENGINE=InnoDB`, `CHARACTER SET utf8mb4`를 기본으로 한다. boolean 컬럼은 `CHAR(1)` (`Y`/`N`) 타입으로, 감사(Audit)를 위한 등록/수정 정보 컬럼을 추가로 둔다.
 
 ```mermaid
 erDiagram
@@ -79,50 +79,67 @@ erDiagram
   TB_PROGRAM ||--o{ TB_PROGRAM : has_child
 
   TB_USER {
-    varchar2_20 USER_ID PK
-    varchar2_50 USER_NM
-    varchar2_10 DEPT_CD
+    varchar_20 USER_ID PK
+    varchar_50 USER_NM
+    varchar_10 DEPT_CD
     char_1 USER_STAT_CD
-    date REG_DTTM
-    varchar2_20 REG_USER_ID
-    date MOD_DTTM
-    varchar2_20 MOD_USER_ID
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
   }
   TB_ROLE {
-    varchar2_20 ROLE_ID PK
-    varchar2_50 ROLE_NM
-    varchar2_200 ROLE_DESC
+    varchar_20 ROLE_ID PK
+    varchar_50 ROLE_NM
+    varchar_200 ROLE_DESC
     char_1 USE_YN
-    date REG_DTTM
-    varchar2_20 REG_USER_ID
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
   }
   TB_USER_ROLE {
-    varchar2_20 USER_ID PK_FK
-    varchar2_20 ROLE_ID PK_FK
-    date REG_DTTM
+    varchar_20 USER_ID PK_FK
+    varchar_20 ROLE_ID PK_FK
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
   }
   TB_PROGRAM {
-    varchar2_20 PROGRAM_ID PK
-    varchar2_20 PARENT_PROGRAM_ID FK
-    varchar2_100 PROGRAM_NM
-    varchar2_200 URL_PATH
-    number_5 MENU_ORD
-    number_2 MENU_LVL
+    varchar_20 PROGRAM_ID PK
+    varchar_20 PARENT_PROGRAM_ID FK
+    varchar_100 PROGRAM_NM
+    varchar_200 URL_PATH
+    int MENU_ORD
+    tinyint MENU_LVL
     char_1 USE_YN
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
   }
   TB_ROLE_PROGRAM {
-    varchar2_20 ROLE_ID PK_FK
-    varchar2_20 PROGRAM_ID PK_FK
+    varchar_20 ROLE_ID PK_FK
+    varchar_20 PROGRAM_ID PK_FK
     char_1 VIEW_YN
     char_1 WRITE_YN
     char_1 DELETE_YN
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
   }
   TB_USER_PROGRAM {
-    varchar2_20 USER_ID PK_FK
-    varchar2_20 PROGRAM_ID PK_FK
+    varchar_20 USER_ID PK_FK
+    varchar_20 PROGRAM_ID PK_FK
     char_1 ALLOW_YN
     char_1 VIEW_YN
     char_1 WRITE_YN
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
   }
 ```
 
@@ -131,44 +148,143 @@ erDiagram
 | 논리 엔터티 / 속성 | 물리 테이블 / 컬럼 | 자료형 | 비고 |
 |---|---|---|---|
 | USERS | TB_USER | | 사용자 |
-| ㄴ user_id (PK) | USER_ID | VARCHAR2(20) | |
-| ㄴ user_name | USER_NM | VARCHAR2(50) | |
-| ㄴ dept_cd | DEPT_CD | VARCHAR2(10) | |
+| ㄴ user_id (PK) | USER_ID | VARCHAR(20) | |
+| ㄴ user_name | USER_NM | VARCHAR(50) | |
+| ㄴ dept_cd | DEPT_CD | VARCHAR(10) | |
 | ㄴ status | USER_STAT_CD | CHAR(1) | 1:재직, 2:퇴직 등 코드값 |
-| (신규) | REG_DTTM / REG_USER_ID | DATE / VARCHAR2(20) | 등록 감사 컬럼 |
-| (신규) | MOD_DTTM / MOD_USER_ID | DATE / VARCHAR2(20) | 수정 감사 컬럼 |
+| (신규) | REG_DTTM / REG_USER_ID | DATETIME / VARCHAR(20) | 등록 감사 컬럼, REG_DTTM 기본값 `CURRENT_TIMESTAMP` |
+| (신규) | MOD_DTTM / MOD_USER_ID | DATETIME / VARCHAR(20) | 수정 감사 컬럼, MOD_DTTM `ON UPDATE CURRENT_TIMESTAMP` |
 | ROLES | TB_ROLE | | 역할 |
-| ㄴ role_id (PK) | ROLE_ID | VARCHAR2(20) | |
-| ㄴ role_name | ROLE_NM | VARCHAR2(50) | |
-| ㄴ description | ROLE_DESC | VARCHAR2(200) | |
+| ㄴ role_id (PK) | ROLE_ID | VARCHAR(20) | |
+| ㄴ role_name | ROLE_NM | VARCHAR(50) | |
+| ㄴ description | ROLE_DESC | VARCHAR(200) | |
 | (신규) | USE_YN | CHAR(1) | 사용여부(Y/N), 기본값 'Y' |
+| (신규) | REG_DTTM / REG_USER_ID | DATETIME / VARCHAR(20) | 등록 감사 컬럼 |
+| (신규) | MOD_DTTM / MOD_USER_ID | DATETIME / VARCHAR(20) | 수정 감사 컬럼 |
 | USER_ROLES | TB_USER_ROLE | | 사용자-역할 매핑 |
-| ㄴ user_id (FK) | USER_ID | VARCHAR2(20) | 복합 PK(1) + FK |
-| ㄴ role_id (FK) | ROLE_ID | VARCHAR2(20) | 복합 PK(2) + FK |
+| ㄴ user_id (FK) | USER_ID | VARCHAR(20) | 복합 PK(1) + FK |
+| ㄴ role_id (FK) | ROLE_ID | VARCHAR(20) | 복합 PK(2) + FK |
+| (신규) | REG_DTTM / REG_USER_ID | DATETIME / VARCHAR(20) | 등록 감사 컬럼 |
+| (신규) | MOD_DTTM / MOD_USER_ID | DATETIME / VARCHAR(20) | 수정 감사 컬럼 |
 | PROGRAMS | TB_PROGRAM | | 프로그램/메뉴 |
-| ㄴ program_id (PK) | PROGRAM_ID | VARCHAR2(20) | |
-| ㄴ parent_id (FK) | PARENT_PROGRAM_ID | VARCHAR2(20) | self FK |
-| ㄴ program_name | PROGRAM_NM | VARCHAR2(100) | |
-| ㄴ url | URL_PATH | VARCHAR2(200) | |
-| ㄴ menu_order | MENU_ORD | NUMBER(5) | |
-| ㄴ menu_level | MENU_LVL | NUMBER(2) | |
+| ㄴ program_id (PK) | PROGRAM_ID | VARCHAR(20) | |
+| ㄴ parent_id (FK) | PARENT_PROGRAM_ID | VARCHAR(20) | self FK |
+| ㄴ program_name | PROGRAM_NM | VARCHAR(100) | |
+| ㄴ url | URL_PATH | VARCHAR(200) | |
+| ㄴ menu_order | MENU_ORD | INT | |
+| ㄴ menu_level | MENU_LVL | TINYINT | |
 | (신규) | USE_YN | CHAR(1) | 메뉴 사용여부 |
+| (신규) | REG_DTTM / REG_USER_ID | DATETIME / VARCHAR(20) | 등록 감사 컬럼 |
+| (신규) | MOD_DTTM / MOD_USER_ID | DATETIME / VARCHAR(20) | 수정 감사 컬럼 |
 | ROLE_PROGRAMS | TB_ROLE_PROGRAM | | 역할별 프로그램 권한 |
-| ㄴ role_id (FK) | ROLE_ID | VARCHAR2(20) | 복합 PK(1) + FK |
-| ㄴ program_id (FK) | PROGRAM_ID | VARCHAR2(20) | 복합 PK(2) + FK |
+| ㄴ role_id (FK) | ROLE_ID | VARCHAR(20) | 복합 PK(1) + FK |
+| ㄴ program_id (FK) | PROGRAM_ID | VARCHAR(20) | 복합 PK(2) + FK |
 | ㄴ can_view | VIEW_YN | CHAR(1) | boolean → Y/N |
 | ㄴ can_write | WRITE_YN | CHAR(1) | boolean → Y/N |
 | ㄴ can_delete | DELETE_YN | CHAR(1) | boolean → Y/N |
+| (신규) | REG_DTTM / REG_USER_ID | DATETIME / VARCHAR(20) | 등록 감사 컬럼 |
+| (신규) | MOD_DTTM / MOD_USER_ID | DATETIME / VARCHAR(20) | 수정 감사 컬럼 |
 | USER_PROGRAMS | TB_USER_PROGRAM | | 사용자별 프로그램 예외 |
-| ㄴ user_id (FK) | USER_ID | VARCHAR2(20) | 복합 PK(1) + FK |
-| ㄴ program_id (FK) | PROGRAM_ID | VARCHAR2(20) | 복합 PK(2) + FK |
+| ㄴ user_id (FK) | USER_ID | VARCHAR(20) | 복합 PK(1) + FK |
+| ㄴ program_id (FK) | PROGRAM_ID | VARCHAR(20) | 복합 PK(2) + FK |
 | ㄴ allow_flag | ALLOW_YN | CHAR(1) | boolean → Y/N |
 | ㄴ can_view | VIEW_YN | CHAR(1) | boolean → Y/N |
 | ㄴ can_write | WRITE_YN | CHAR(1) | boolean → Y/N |
+| (신규) | REG_DTTM / REG_USER_ID | DATETIME / VARCHAR(20) | 등록 감사 컬럼 |
+| (신규) | MOD_DTTM / MOD_USER_ID | DATETIME / VARCHAR(20) | 수정 감사 컬럼 |
 
 - boolean 속성은 물리 모델에서 `CHAR(1)` (`Y`/`N`) 컬럼으로 변환한다.
-- `USERS`, `ROLES`, `PROGRAMS`에는 논리 모델에 없던 `USE_YN`(사용여부) 및 `REG_DTTM`/`REG_USER_ID`/`MOD_DTTM`/`MOD_USER_ID`(등록·수정 감사 컬럼)를 물리 모델에서 추가한다.
+- 모든 물리 테이블(TB_USER, TB_ROLE, TB_USER_ROLE, TB_PROGRAM, TB_ROLE_PROGRAM, TB_USER_PROGRAM, TB_CODE_GROUP, TB_CODE)에 논리 모델에 없던 `REG_DTTM`/`REG_USER_ID`/`MOD_DTTM`/`MOD_USER_ID`(등록·수정 감사 컬럼)를 공통으로 추가한다. `USERS`, `ROLES`, `PROGRAMS`에는 `USE_YN`(사용여부)도 함께 추가한다.
 - 복합키(PK+FK)로 표기된 컬럼은 매핑 테이블/예외 테이블에서 두 컬럼이 함께 PK를 구성한다.
+- MariaDB 특성상 Oracle의 `VARCHAR2`는 `VARCHAR`로, `NUMBER(n)`은 값 범위에 맞춰 `INT`/`TINYINT`로, `DATE`(시각 포함)는 `DATETIME`으로 대응한다. `SYSDATE` 대신 컬럼 기본값 `CURRENT_TIMESTAMP` / `ON UPDATE CURRENT_TIMESTAMP`를 사용한다.
+
+### 3.2 DDL 예시 (MariaDB)
+
+테이블/컬럼 COMMENT는 "4. 테이블 정의"의 설명을 그대로 반영했다.
+
+```sql
+CREATE TABLE TB_USER (
+  USER_ID       VARCHAR(20)  NOT NULL COMMENT '사용자 ID',
+  USER_NM       VARCHAR(50)  NOT NULL COMMENT '사용자명',
+  DEPT_CD       VARCHAR(10)  NULL     COMMENT '부서 코드',
+  USER_STAT_CD  CHAR(1)      NOT NULL COMMENT '사용자 상태 (재직/퇴직 등)',
+  REG_DTTM      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID   VARCHAR(20)  NULL     COMMENT '등록자 ID',
+  MOD_DTTM      DATETIME     NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID   VARCHAR(20)  NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (USER_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='사용자';
+
+CREATE TABLE TB_ROLE (
+  ROLE_ID     VARCHAR(20)  NOT NULL COMMENT '역할 ID',
+  ROLE_NM     VARCHAR(50)  NOT NULL COMMENT '역할명 (예: 시스템관리자, 일반사용자)',
+  ROLE_DESC   VARCHAR(200) NULL     COMMENT '역할 설명',
+  USE_YN      CHAR(1)      NOT NULL DEFAULT 'Y' COMMENT '사용여부 (Y/N)',
+  REG_DTTM    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20)  NULL     COMMENT '등록자 ID',
+  MOD_DTTM    DATETIME     NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID VARCHAR(20)  NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (ROLE_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='역할';
+
+CREATE TABLE TB_USER_ROLE (
+  USER_ID     VARCHAR(20) NOT NULL COMMENT '사용자 ID',
+  ROLE_ID     VARCHAR(20) NOT NULL COMMENT '역할 ID',
+  REG_DTTM    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20) NULL     COMMENT '등록자 ID',
+  MOD_DTTM    DATETIME    NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID VARCHAR(20) NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (USER_ID, ROLE_ID),
+  CONSTRAINT FK_USER_ROLE_USER FOREIGN KEY (USER_ID) REFERENCES TB_USER (USER_ID),
+  CONSTRAINT FK_USER_ROLE_ROLE FOREIGN KEY (ROLE_ID) REFERENCES TB_ROLE (ROLE_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='사용자-역할 매핑 (사용자 1명이 여러 역할을 가질 수 있는 N:M 관계)';
+
+CREATE TABLE TB_PROGRAM (
+  PROGRAM_ID        VARCHAR(20)  NOT NULL COMMENT '프로그램(메뉴) ID',
+  PARENT_PROGRAM_ID VARCHAR(20)  NULL     COMMENT '상위 메뉴 ID (대메뉴-소메뉴 계층 표현)',
+  PROGRAM_NM        VARCHAR(100) NOT NULL COMMENT '메뉴명',
+  URL_PATH          VARCHAR(200) NULL     COMMENT '연결 URL/라우팅 경로',
+  MENU_ORD          INT          NULL     COMMENT '메뉴 정렬 순서',
+  MENU_LVL          TINYINT      NULL     COMMENT '메뉴 depth (1: 대메뉴, 2: 소메뉴 …)',
+  USE_YN            CHAR(1)      NOT NULL DEFAULT 'Y' COMMENT '메뉴 사용여부 (Y/N)',
+  REG_DTTM          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID       VARCHAR(20)  NULL     COMMENT '등록자 ID',
+  MOD_DTTM          DATETIME     NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID       VARCHAR(20)  NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (PROGRAM_ID),
+  CONSTRAINT FK_PROGRAM_PARENT FOREIGN KEY (PARENT_PROGRAM_ID) REFERENCES TB_PROGRAM (PROGRAM_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='프로그램/메뉴';
+
+CREATE TABLE TB_ROLE_PROGRAM (
+  ROLE_ID     VARCHAR(20) NOT NULL COMMENT '역할 ID',
+  PROGRAM_ID  VARCHAR(20) NOT NULL COMMENT '프로그램 ID',
+  VIEW_YN     CHAR(1)     NOT NULL DEFAULT 'N' COMMENT '조회 권한 여부',
+  WRITE_YN    CHAR(1)     NOT NULL DEFAULT 'N' COMMENT '등록/수정 권한 여부',
+  DELETE_YN   CHAR(1)     NOT NULL DEFAULT 'N' COMMENT '삭제 권한 여부',
+  REG_DTTM    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20) NULL     COMMENT '등록자 ID',
+  MOD_DTTM    DATETIME    NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID VARCHAR(20) NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (ROLE_ID, PROGRAM_ID),
+  CONSTRAINT FK_ROLE_PROGRAM_ROLE FOREIGN KEY (ROLE_ID) REFERENCES TB_ROLE (ROLE_ID),
+  CONSTRAINT FK_ROLE_PROGRAM_PROGRAM FOREIGN KEY (PROGRAM_ID) REFERENCES TB_PROGRAM (PROGRAM_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='역할별 프로그램 권한 (로그인 시 메뉴 렌더링의 기본 소스)';
+
+CREATE TABLE TB_USER_PROGRAM (
+  USER_ID     VARCHAR(20) NOT NULL COMMENT '사용자 ID',
+  PROGRAM_ID  VARCHAR(20) NOT NULL COMMENT '프로그램 ID',
+  ALLOW_YN    CHAR(1)     NOT NULL COMMENT '허용(Y) / 차단(N) 구분',
+  VIEW_YN     CHAR(1)     NULL     COMMENT '조회 권한 여부',
+  WRITE_YN    CHAR(1)     NULL     COMMENT '등록/수정 권한 여부',
+  REG_DTTM    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20) NULL     COMMENT '등록자 ID',
+  MOD_DTTM    DATETIME    NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID VARCHAR(20) NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (USER_ID, PROGRAM_ID),
+  CONSTRAINT FK_USER_PROGRAM_USER FOREIGN KEY (USER_ID) REFERENCES TB_USER (USER_ID),
+  CONSTRAINT FK_USER_PROGRAM_PROGRAM FOREIGN KEY (PROGRAM_ID) REFERENCES TB_PROGRAM (PROGRAM_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='사용자별 프로그램 예외 권한 (allow_flag가 N이면 역할 권한상 접근 가능해도 해당 사용자는 접근 차단)';
+```
 
 ## 4. 테이블 정의
 
@@ -282,4 +398,123 @@ erDiagram
 4. finalMenus = baseMenus를 exceptions로 덮어쓰기
                 (allow_flag = false 인 program_id는 최종 메뉴에서 제외)
 5. finalMenus를 PROGRAMS.parent_id 기준으로 트리 구조로 조립하여 화면에 렌더링
+```
+
+## 7. 공통코드(Common Code) 테이블
+
+기존 테이블의 컬럼 중 정해진 값 집합(코드) 중 하나가 대입되는 항목들을 공통코드 그룹/상세 2단 구조로 뽑아낸다.
+
+### 7.1 대상 컬럼 매핑
+
+| 대상 테이블.컬럼 | 그룹코드(GROUP_CD) | 코드값 예시 |
+|---|---|---|
+| TB_USER.USER_STAT_CD | USER_STAT | 1(재직), 2(휴직), 3(퇴직) |
+| TB_PROGRAM.MENU_LVL | MENU_LVL | 1(대메뉴), 2(소메뉴), 3(세부메뉴) |
+| TB_ROLE.USE_YN, TB_PROGRAM.USE_YN, TB_ROLE_PROGRAM.VIEW_YN/WRITE_YN/DELETE_YN, TB_USER_PROGRAM.ALLOW_YN/VIEW_YN/WRITE_YN | YN | Y(사용/허용), N(미사용/차단) |
+
+- `DEPT_CD`(부서 코드)는 값 목록이 아니라 실제 조직(부서) 데이터를 가리키므로, 공통코드가 아닌 별도 부서 마스터 테이블 대상으로 남겨둔다(현재 모델 범위 밖).
+- `*_ID`류(USER_ID, ROLE_ID, PROGRAM_ID 등)는 엔터티 식별자이므로 공통코드 대상이 아니다.
+
+### 7.2 ERD
+
+```mermaid
+erDiagram
+  TB_CODE_GROUP ||--o{ TB_CODE : has
+
+  TB_CODE_GROUP {
+    varchar_30 GROUP_CD PK
+    varchar_100 GROUP_NM
+    varchar_200 GROUP_DESC
+    char_1 USE_YN
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
+  }
+  TB_CODE {
+    varchar_30 GROUP_CD PK_FK
+    varchar_30 CODE PK
+    varchar_100 CODE_NM
+    varchar_200 CODE_DESC
+    int SORT_ORD
+    char_1 USE_YN
+    datetime REG_DTTM
+    varchar_20 REG_USER_ID
+    datetime MOD_DTTM
+    varchar_20 MOD_USER_ID
+  }
+```
+
+- `TB_USER.USER_STAT_CD`, `TB_PROGRAM.MENU_LVL`, 각 테이블의 `*_YN` 컬럼은 `TB_CODE.GROUP_CD`(위 7.1 매핑)를 애플리케이션 레벨에서 참조한다. `TB_CODE.CODE`는 여러 그룹이 공유하는 범용 컬럼(VARCHAR)이라 자료형이 다른 `MENU_LVL`(TINYINT) 등과는 DB FK 제약을 걸지 않고, 콤보박스/유효성 검증 등 애플리케이션 로직에서 참조하는 것이 일반적인 공통코드 설계 방식이다.
+
+### 7.3 테이블 정의
+
+#### 7.3.1 TB_CODE_GROUP (공통코드 그룹)
+
+| 컬럼 | 설명 |
+|------|------|
+| group_cd (PK) | 코드 그룹 ID (예: USER_STAT, MENU_LVL, YN) |
+| group_nm | 코드 그룹명 |
+| group_desc | 코드 그룹 설명 |
+| use_yn | 그룹 사용여부 (Y/N) |
+
+#### 7.3.2 TB_CODE (공통코드 상세)
+
+| 컬럼 | 설명 |
+|------|------|
+| group_cd (PK, FK) | 코드 그룹 ID |
+| code (PK) | 코드값 |
+| code_nm | 코드명 (화면 표시용) |
+| code_desc | 코드 설명 |
+| sort_ord | 정렬 순서 |
+| use_yn | 코드 사용여부 (Y/N) |
+
+### 7.4 DDL 예시 (MariaDB)
+
+```sql
+CREATE TABLE TB_CODE_GROUP (
+  GROUP_CD    VARCHAR(30)  NOT NULL COMMENT '코드 그룹 ID',
+  GROUP_NM    VARCHAR(100) NOT NULL COMMENT '코드 그룹명',
+  GROUP_DESC  VARCHAR(200) NULL     COMMENT '코드 그룹 설명',
+  USE_YN      CHAR(1)      NOT NULL DEFAULT 'Y' COMMENT '그룹 사용여부 (Y/N)',
+  REG_DTTM    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20)  NULL     COMMENT '등록자 ID',
+  MOD_DTTM    DATETIME     NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID VARCHAR(20)  NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (GROUP_CD)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='공통코드 그룹';
+
+CREATE TABLE TB_CODE (
+  GROUP_CD    VARCHAR(30)  NOT NULL COMMENT '코드 그룹 ID',
+  CODE        VARCHAR(30)  NOT NULL COMMENT '코드값',
+  CODE_NM     VARCHAR(100) NOT NULL COMMENT '코드명 (화면 표시용)',
+  CODE_DESC   VARCHAR(200) NULL     COMMENT '코드 설명',
+  SORT_ORD    INT          NULL     COMMENT '정렬 순서',
+  USE_YN      CHAR(1)      NOT NULL DEFAULT 'Y' COMMENT '코드 사용여부 (Y/N)',
+  REG_DTTM    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20)  NULL     COMMENT '등록자 ID',
+  MOD_DTTM    DATETIME     NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID VARCHAR(20)  NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (GROUP_CD, CODE),
+  CONSTRAINT FK_CODE_GROUP FOREIGN KEY (GROUP_CD) REFERENCES TB_CODE_GROUP (GROUP_CD)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='공통코드 상세';
+```
+
+### 7.5 초기 데이터
+
+```sql
+INSERT INTO TB_CODE_GROUP (GROUP_CD, GROUP_NM, GROUP_DESC) VALUES
+('USER_STAT', '사용자 상태', 'TB_USER.USER_STAT_CD 값 목록'),
+('MENU_LVL',  '메뉴 레벨',   'TB_PROGRAM.MENU_LVL 값 목록 (메뉴 depth)'),
+('YN',        '사용여부(Y/N)', '*_YN 컬럼 공통 목록 (USE_YN/VIEW_YN/WRITE_YN/DELETE_YN/ALLOW_YN 등)');
+
+INSERT INTO TB_CODE (GROUP_CD, CODE, CODE_NM, SORT_ORD) VALUES
+('USER_STAT', '1', '재직', 1),
+('USER_STAT', '2', '휴직', 2),
+('USER_STAT', '3', '퇴직', 3),
+('MENU_LVL',  '1', '대메뉴', 1),
+('MENU_LVL',  '2', '소메뉴', 2),
+('MENU_LVL',  '3', '세부메뉴', 3),
+('YN',        'Y', '사용', 1),
+('YN',        'N', '미사용', 2);
 ```
