@@ -1,0 +1,117 @@
+-- ============================================================
+-- 권한관리(RBAC) 물리 모델 - MariaDB DB/테이블 생성 스크립트
+--
+-- DB명       : mdtest
+-- 접속 계정  : mdtest
+-- 접속 암호  : mdtest1!
+--
+-- 테이블/컬럼 COMMENT는 "webdev_erd_2.md ## 4. 테이블 정의"의 설명을 반영했다.
+--
+-- [실행 방법]
+-- 1) DB/계정까지 처음부터 생성할 때 (root 권한 필요)
+--      mysql -u root -p < create_mdtest.sql
+--    (root 비밀번호 입력 프롬프트가 뜨면 root 계정 비밀번호를 입력)
+--
+-- 2) DB/계정은 이미 만들어져 있고 테이블만 다시 만들 때
+--      mysql -u mdtest -p mdtest < create_mdtest.sql
+--    (이 경우 위쪽 CREATE DATABASE/CREATE USER/GRANT 구문은 무시되어도 무방)
+-- ============================================================
+
+-- 1. 데이터베이스 생성
+CREATE DATABASE IF NOT EXISTS mdtest
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_general_ci;
+
+-- 2. 접속 계정 생성 및 권한 부여 (mdtest / mdtest1!)
+CREATE USER IF NOT EXISTS 'mdtest'@'%' IDENTIFIED BY 'mdtest1!';
+CREATE USER IF NOT EXISTS 'mdtest'@'localhost' IDENTIFIED BY 'mdtest1!';
+
+GRANT ALL PRIVILEGES ON mdtest.* TO 'mdtest'@'%';
+GRANT ALL PRIVILEGES ON mdtest.* TO 'mdtest'@'localhost';
+FLUSH PRIVILEGES;
+
+USE mdtest;
+
+-- 3. 기존 테이블 정리 (재실행 대비, 자식 -> 부모 순서)
+DROP TABLE IF EXISTS TB_USER_PROGRAM;
+DROP TABLE IF EXISTS TB_ROLE_PROGRAM;
+DROP TABLE IF EXISTS TB_USER_ROLE;
+DROP TABLE IF EXISTS TB_PROGRAM;
+DROP TABLE IF EXISTS TB_ROLE;
+DROP TABLE IF EXISTS TB_USER;
+
+-- 4. 테이블 생성 (부모 -> 자식 순서)
+
+-- 4.1 TB_USER (사용자)
+CREATE TABLE TB_USER (
+  USER_ID       VARCHAR(20)  NOT NULL COMMENT '사용자 ID',
+  USER_NM       VARCHAR(50)  NOT NULL COMMENT '사용자명',
+  DEPT_CD       VARCHAR(10)  NULL     COMMENT '부서 코드',
+  USER_STAT_CD  CHAR(1)      NOT NULL COMMENT '사용자 상태 (재직/퇴직 등)',
+  REG_DTTM      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID   VARCHAR(20)  NULL     COMMENT '등록자 ID',
+  MOD_DTTM      DATETIME     NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID   VARCHAR(20)  NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (USER_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='사용자';
+
+-- 4.2 TB_ROLE (역할)
+CREATE TABLE TB_ROLE (
+  ROLE_ID     VARCHAR(20)  NOT NULL COMMENT '역할 ID',
+  ROLE_NM     VARCHAR(50)  NOT NULL COMMENT '역할명 (예: 시스템관리자, 일반사용자)',
+  ROLE_DESC   VARCHAR(200) NULL     COMMENT '역할 설명',
+  USE_YN      CHAR(1)      NOT NULL DEFAULT 'Y' COMMENT '사용여부 (Y/N)',
+  REG_DTTM    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20)  NULL     COMMENT '등록자 ID',
+  PRIMARY KEY (ROLE_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='역할';
+
+-- 4.3 TB_USER_ROLE (사용자-역할 매핑)
+CREATE TABLE TB_USER_ROLE (
+  USER_ID  VARCHAR(20) NOT NULL COMMENT '사용자 ID',
+  ROLE_ID  VARCHAR(20) NOT NULL COMMENT '역할 ID',
+  REG_DTTM DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  PRIMARY KEY (USER_ID, ROLE_ID),
+  CONSTRAINT FK_USER_ROLE_USER FOREIGN KEY (USER_ID) REFERENCES TB_USER (USER_ID),
+  CONSTRAINT FK_USER_ROLE_ROLE FOREIGN KEY (ROLE_ID) REFERENCES TB_ROLE (ROLE_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='사용자-역할 매핑 (사용자 1명이 여러 역할을 가질 수 있는 N:M 관계)';
+
+-- 4.4 TB_PROGRAM (프로그램/메뉴)
+CREATE TABLE TB_PROGRAM (
+  PROGRAM_ID        VARCHAR(20)  NOT NULL COMMENT '프로그램(메뉴) ID',
+  PARENT_PROGRAM_ID VARCHAR(20)  NULL     COMMENT '상위 메뉴 ID (대메뉴-소메뉴 계층 표현)',
+  PROGRAM_NM        VARCHAR(100) NOT NULL COMMENT '메뉴명',
+  URL_PATH          VARCHAR(200) NULL     COMMENT '연결 URL/라우팅 경로',
+  MENU_ORD          INT          NULL     COMMENT '메뉴 정렬 순서',
+  MENU_LVL          TINYINT      NULL     COMMENT '메뉴 depth (1: 대메뉴, 2: 소메뉴 …)',
+  USE_YN            CHAR(1)      NOT NULL DEFAULT 'Y' COMMENT '메뉴 사용여부 (Y/N)',
+  PRIMARY KEY (PROGRAM_ID),
+  CONSTRAINT FK_PROGRAM_PARENT FOREIGN KEY (PARENT_PROGRAM_ID) REFERENCES TB_PROGRAM (PROGRAM_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='프로그램/메뉴';
+
+-- 4.5 TB_ROLE_PROGRAM (역할별 프로그램 권한)
+CREATE TABLE TB_ROLE_PROGRAM (
+  ROLE_ID    VARCHAR(20) NOT NULL COMMENT '역할 ID',
+  PROGRAM_ID VARCHAR(20) NOT NULL COMMENT '프로그램 ID',
+  VIEW_YN    CHAR(1)     NOT NULL DEFAULT 'N' COMMENT '조회 권한 여부',
+  WRITE_YN   CHAR(1)     NOT NULL DEFAULT 'N' COMMENT '등록/수정 권한 여부',
+  DELETE_YN  CHAR(1)     NOT NULL DEFAULT 'N' COMMENT '삭제 권한 여부',
+  PRIMARY KEY (ROLE_ID, PROGRAM_ID),
+  CONSTRAINT FK_ROLE_PROGRAM_ROLE FOREIGN KEY (ROLE_ID) REFERENCES TB_ROLE (ROLE_ID),
+  CONSTRAINT FK_ROLE_PROGRAM_PROGRAM FOREIGN KEY (PROGRAM_ID) REFERENCES TB_PROGRAM (PROGRAM_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='역할별 프로그램 권한 (로그인 시 메뉴 렌더링의 기본 소스)';
+
+-- 4.6 TB_USER_PROGRAM (사용자별 프로그램 예외 권한)
+CREATE TABLE TB_USER_PROGRAM (
+  USER_ID    VARCHAR(20) NOT NULL COMMENT '사용자 ID',
+  PROGRAM_ID VARCHAR(20) NOT NULL COMMENT '프로그램 ID',
+  ALLOW_YN   CHAR(1)     NOT NULL COMMENT '허용(Y) / 차단(N) 구분',
+  VIEW_YN    CHAR(1)     NULL     COMMENT '조회 권한 여부',
+  WRITE_YN   CHAR(1)     NULL     COMMENT '등록/수정 권한 여부',
+  PRIMARY KEY (USER_ID, PROGRAM_ID),
+  CONSTRAINT FK_USER_PROGRAM_USER FOREIGN KEY (USER_ID) REFERENCES TB_USER (USER_ID),
+  CONSTRAINT FK_USER_PROGRAM_PROGRAM FOREIGN KEY (PROGRAM_ID) REFERENCES TB_PROGRAM (PROGRAM_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='사용자별 프로그램 예외 권한 (allow_flag가 N이면 역할 권한상 접근 가능해도 해당 사용자는 접근 차단)';
+
+-- 5. 생성 확인
+SHOW TABLES;
