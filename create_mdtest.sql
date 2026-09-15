@@ -38,6 +38,7 @@ FLUSH PRIVILEGES;
 USE mdtest;
 
 -- 3. 기존 테이블 정리 (재실행 대비, 자식 -> 부모 순서)
+DROP TABLE IF EXISTS TB_MY_MENU;
 DROP TABLE IF EXISTS TB_USER_PROGRAM;
 DROP TABLE IF EXISTS TB_ROLE_PROGRAM;
 DROP TABLE IF EXISTS TB_USER_ROLE;
@@ -166,6 +167,20 @@ CREATE TABLE TB_CODE (
   CONSTRAINT FK_CODE_GROUP FOREIGN KEY (GROUP_CD) REFERENCES TB_CODE_GROUP (GROUP_CD)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='공통코드 상세';
 
+-- 4.9 TB_MY_MENU (나의메뉴)
+CREATE TABLE TB_MY_MENU (
+  USER_ID     VARCHAR(20) NOT NULL COMMENT '사용자 ID',
+  PROGRAM_ID  VARCHAR(20) NOT NULL COMMENT '프로그램 ID',
+  SORT_ORD    INT         NULL     COMMENT '나의메뉴 내 표시 순서',
+  REG_DTTM    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
+  REG_USER_ID VARCHAR(20) NULL     COMMENT '등록자 ID',
+  MOD_DTTM    DATETIME    NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+  MOD_USER_ID VARCHAR(20) NULL     COMMENT '수정자 ID',
+  PRIMARY KEY (USER_ID, PROGRAM_ID),
+  CONSTRAINT FK_MY_MENU_USER FOREIGN KEY (USER_ID) REFERENCES TB_USER (USER_ID),
+  CONSTRAINT FK_MY_MENU_PROGRAM FOREIGN KEY (PROGRAM_ID) REFERENCES TB_PROGRAM (PROGRAM_ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='나의메뉴 (사용자가 즐겨찾기로 등록한 프로그램)';
+
 -- 5. 공통코드 초기 데이터
 -- 대상 컬럼: TB_USER.USER_STAT_CD, TB_PROGRAM.MENU_LVL,
 --           TB_ROLE.USE_YN / TB_PROGRAM.USE_YN / TB_ROLE_PROGRAM.VIEW_YN,WRITE_YN,DELETE_YN / TB_USER_PROGRAM.ALLOW_YN,VIEW_YN,WRITE_YN
@@ -184,5 +199,60 @@ INSERT INTO TB_CODE (GROUP_CD, CODE, CODE_NM, SORT_ORD) VALUES
 ('YN',        'Y', '사용', 1),
 ('YN',        'N', '미사용', 2);
 
--- 6. 생성 확인
+-- 6. 초기 업무 데이터 (역할/사용자/메뉴)
+
+-- 6.1 TB_ROLE : 역할
+INSERT INTO TB_ROLE (ROLE_ID, ROLE_NM, ROLE_DESC, REG_USER_ID) VALUES
+('SYSADMIN', '시스템관리자', '시스템 전체 관리 권한을 가진 최고 관리자 역할', 'SYSTEM'),
+('GENERAL',  '일반사용자',   '기본 업무 화면 접근 권한을 가진 일반 사용자 역할', 'SYSTEM');
+
+-- 6.2 TB_USER : 사용자
+INSERT INTO TB_USER (USER_ID, USER_NM, USER_STAT_CD, REG_USER_ID) VALUES
+('admin', '관리자',    '1', 'SYSTEM'),
+('wms',   'WMS 사용자', '1', 'SYSTEM');
+
+-- 6.3 TB_USER_ROLE : 사용자-역할 매핑 (admin -> 시스템관리자, wms -> 일반사용자)
+INSERT INTO TB_USER_ROLE (USER_ID, ROLE_ID, REG_USER_ID) VALUES
+('admin', 'SYSADMIN', 'SYSTEM'),
+('wms',   'GENERAL',  'SYSTEM');
+
+-- 6.4 TB_PROGRAM : 대메뉴(1) - 소메뉴(2) - 프로그램(3)
+-- 6.4.1 대메뉴 (MENU_LVL = 1)
+INSERT INTO TB_PROGRAM (PROGRAM_ID, PARENT_PROGRAM_ID, PROGRAM_NM, URL_PATH, MENU_ORD, MENU_LVL, REG_USER_ID) VALUES
+('AMS', NULL, 'AMS', '/ams', 1, 1, 'SYSTEM'),
+('WMS', NULL, 'WMS', '/wms', 2, 1, 'SYSTEM');
+
+-- 6.4.2 소메뉴 (MENU_LVL = 2)
+INSERT INTO TB_PROGRAM (PROGRAM_ID, PARENT_PROGRAM_ID, PROGRAM_NM, URL_PATH, MENU_ORD, MENU_LVL, REG_USER_ID) VALUES
+('AMS_AUTH',  'AMS', '권한관리', '/ams/auth',  1, 2, 'SYSTEM'),
+('WMS_BASE',  'WMS', '기본',     '/wms/base',  1, 2, 'SYSTEM'),
+('WMS_IN',    'WMS', '입고',     '/wms/in',    2, 2, 'SYSTEM'),
+('WMS_OUT',   'WMS', '출고',     '/wms/out',   3, 2, 'SYSTEM'),
+('WMS_STOCK', 'WMS', '재고',     '/wms/stock', 4, 2, 'SYSTEM');
+
+-- 6.4.3 프로그램 (MENU_LVL = 3, 권한관리 하위)
+INSERT INTO TB_PROGRAM (PROGRAM_ID, PARENT_PROGRAM_ID, PROGRAM_NM, URL_PATH, MENU_ORD, MENU_LVL, REG_USER_ID) VALUES
+('AMS_AUTH_USER',      'AMS_AUTH', '사용자 관리',        '/ams/auth/user',          1, 3, 'SYSTEM'),
+('AMS_AUTH_PROG',      'AMS_AUTH', '프로그램 관리',      '/ams/auth/program',       2, 3, 'SYSTEM'),
+('AMS_AUTH_ROLE',      'AMS_AUTH', '역할 관리',          '/ams/auth/role',          3, 3, 'SYSTEM'),
+('AMS_AUTH_USR_ROLE',  'AMS_AUTH', '사용자별 역할 관리', '/ams/auth/user-role',     4, 3, 'SYSTEM'),
+('AMS_AUTH_ROLE_PROG', 'AMS_AUTH', '역할별 프로그램 권한','/ams/auth/role-program', 5, 3, 'SYSTEM'),
+('AMS_AUTH_CODE',      'AMS_AUTH', '공통코드',           '/ams/auth/code',          6, 3, 'SYSTEM');
+
+-- 6.5 TB_ROLE_PROGRAM : SYSADMIN에게 AMS_AUTH(권한관리) 하위 프로그램 권한 부여
+INSERT INTO TB_ROLE_PROGRAM (ROLE_ID, PROGRAM_ID, VIEW_YN, WRITE_YN, DELETE_YN, REG_USER_ID)
+SELECT 'SYSADMIN', PROGRAM_ID, 'Y', 'Y', 'Y', 'SYSTEM'
+FROM TB_PROGRAM
+WHERE PARENT_PROGRAM_ID = 'AMS_AUTH';
+
+-- 6.6 TB_ROLE_PROGRAM : SYSADMIN에게 나머지 상위 메뉴(AMS, WMS 대메뉴/소메뉴) 전체 권한 부여
+-- (6.5에서 이미 등록한 AMS_AUTH 하위 6건을 제외한 나머지 전체 프로그램)
+INSERT INTO TB_ROLE_PROGRAM (ROLE_ID, PROGRAM_ID, VIEW_YN, WRITE_YN, DELETE_YN, REG_USER_ID)
+SELECT 'SYSADMIN', PROGRAM_ID, 'Y', 'Y', 'Y', 'SYSTEM'
+FROM TB_PROGRAM p
+WHERE NOT EXISTS (
+  SELECT 1 FROM TB_ROLE_PROGRAM rp WHERE rp.ROLE_ID = 'SYSADMIN' AND rp.PROGRAM_ID = p.PROGRAM_ID
+);
+
+-- 7. 생성 확인
 SHOW TABLES;
